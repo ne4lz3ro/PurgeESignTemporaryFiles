@@ -15,10 +15,9 @@ namespace PurgeESignTemporaryFiles
         static void Main()
         {
 #if DEBUG
-            PurgeService s = new PurgeService();
-            s.StartTimer(new TimeSpan(09, 36, 0), new TimeSpan(0, 2, 0));
-            //var o = new object();
-            //s.RunService(o);
+            PurgeService service = new PurgeService();            
+            var o = new object();
+            service.RunService(o);
 #else
             ServiceBase[] ServicesToRun;
             ServicesToRun = new ServiceBase[]
