@@ -1,48 +1,30 @@
 ﻿using System;
-using System.Data;
+using System.Collections.Generic;
+using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.ServiceProcess;
-using System.Configuration;
+using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using NLog;
 
-namespace PurgeESignTemporaryFiles
+namespace PurgeESignTemporaryFiles.Console
 {
-    public partial class PurgeService : ServiceBase
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            var purgeServcie = new PurgeService();
+            purgeServcie.RunService();            
+        }
+    }
+
+    public class PurgeService 
     {
         private static Logger logger = LogManager.GetCurrentClassLogger();
         private Timer _timer = null;
         private string CURRENT_MONTH = $"{DateTime.Today.Year}{DateTime.Today.Month.ToString().PadLeft(2, '0')}";
-        public PurgeService()
-        {
-            InitializeComponent();
-        }
-
-        protected override void OnStart(string[] args)
-        {
-            logger.Debug("e投保刪除檔案服務開始");
-            var scheduledRunTime = ConfigurationManager.AppSettings["ScheduledRunTime"];
-            var scheduledRunTimeArrary = scheduledRunTime.Split(':');
-            var scheduledRunTimeHours = int.Parse(scheduledRunTimeArrary[0]);
-            var scheduledRunTimeMinutes = int.Parse(scheduledRunTimeArrary[1]);
-            var scheduledRunTimeSeconds = int.Parse(scheduledRunTimeArrary[2]);
-
-            var timeBetweenEachRun = ConfigurationManager.AppSettings["TimeBetweenEachRun"];
-            var timeBetweenEachRunArray = timeBetweenEachRun.Split(':');
-            var timeBetweenEachRunHours = int.Parse(timeBetweenEachRunArray[0]);
-            var timeBetweenEachRunMinutes = int.Parse(timeBetweenEachRunArray[1]);
-            var timeBetweenEachRunSeconds = int.Parse(timeBetweenEachRunArray[2]);
-
-            StartTimer(new TimeSpan(scheduledRunTimeHours, scheduledRunTimeMinutes, scheduledRunTimeSeconds),
-                new TimeSpan(timeBetweenEachRunHours, timeBetweenEachRunMinutes, timeBetweenEachRunSeconds));
-        }
-
-        protected override void OnStop()
-        {
-            logger.Debug("e投保刪除檔案服務停止");
-        }
 
         public void StartTimer(TimeSpan scheduledRunTime, TimeSpan timeBetweenEachRun)
         {
@@ -50,12 +32,12 @@ namespace PurgeESignTemporaryFiles
             double scheduledTime = scheduledRunTime.TotalMilliseconds;
             double intervalPeriod = timeBetweenEachRun.TotalMilliseconds;
             double firstExecution = current > scheduledTime ? intervalPeriod + (intervalPeriod - current) : scheduledTime - current;
-            TimerCallback callback = new TimerCallback(RunService);
-            logger.Debug(firstExecution);
-            _timer = new Timer(callback, null, Convert.ToInt32(firstExecution), Convert.ToInt32(intervalPeriod));
+            //TimerCallback callback = new TimerCallback(RunService());
+            //logger.Debug(firstExecution);
+            //_timer = new Timer(callback, null, Convert.ToInt32(firstExecution), Convert.ToInt32(intervalPeriod));
         }
 
-        public void RunService(object state)
+        public void RunService()
         {
             try
             {
@@ -92,7 +74,7 @@ namespace PurgeESignTemporaryFiles
 
         public void DeleteProcessLog()
         {
-            var filePath = ConfigurationManager.AppSettings["ProcessLogFilePath"].Replace("%currentMonth%", $"{DateTime.Today.Year}{DateTime.Today.Month.ToString().PadLeft(2, '0')}");
+            var filePath = ConfigurationManager.AppSettings["ProcessLogFilePath"].Replace("%currentMonth%", CURRENT_MONTH);
             var reservedDay = int.Parse(ConfigurationManager.AppSettings["ProcessLogReservedDays"]);
             var deleteFiles = 0;
             PurgeFilePathInfo(filePath, reservedDay, out deleteFiles);
@@ -101,7 +83,7 @@ namespace PurgeESignTemporaryFiles
 
         private void DeleteXMLFiles()
         {
-            var filePath = ConfigurationManager.AppSettings["ProcessXMLFilePath"].Replace("%currentMonth%", $"{DateTime.Today.Year}{DateTime.Today.Month.ToString().PadLeft(2, '0')}");
+            var filePath = ConfigurationManager.AppSettings["ProcessXMLFilePath"].Replace("%currentMonth%", CURRENT_MONTH);
             var reservedDay = int.Parse(ConfigurationManager.AppSettings["ProcessXMLReservedDays"]);
             var deleteFiles = 0;
             PurgeFilePathInfo(filePath, reservedDay, out deleteFiles);
@@ -137,7 +119,7 @@ namespace PurgeESignTemporaryFiles
 
         private void DeleteZipFileBackup()
         {
-            var filePath = ConfigurationManager.AppSettings["ZipFileBackupFilePath"].Replace("%currentMonth%", $"{DateTime.Today.Year}{DateTime.Today.Month.ToString().PadLeft(2, '0')}");
+            var filePath = ConfigurationManager.AppSettings["ZipFileBackupFilePath"].Replace("%currentMonth%", CURRENT_MONTH);
             var reservedDay = int.Parse(ConfigurationManager.AppSettings["ZipFileBackupReservedDays"]);
             var deleteFiles = 0;
             PurgeFilePathInfo(filePath, reservedDay, out deleteFiles);
@@ -152,7 +134,7 @@ namespace PurgeESignTemporaryFiles
 
         private void PurgeFilePathInfo(string filePath, int day, out int files)
         {
-            logger.Debug($"刪除檔案的目錄路徑: {filePath}");
+            logger.Debug($"刪除檔案的目錄路徑: {filePath},保留天數 {day}");
             files = 0;
             try
             {
@@ -167,13 +149,13 @@ namespace PurgeESignTemporaryFiles
                 }
                 else
                 {
-                    fileList = new DirectoryInfo(filePath).GetFiles("*.*", SearchOption.AllDirectories).Where(f => f.LastWriteTime < DateTime.Today.AddDays(-day)).Select(f => f.FullName).ToArray();
+                    fileList = new DirectoryInfo(filePath).GetFiles("*.*", SearchOption.AllDirectories).Where(f=>f.LastWriteTime < DateTime.Today.AddDays(-day)).Select(f => f.FullName).ToArray();
                 }
 
                 if (fileList == null) return;
                 files = fileList.Count();
                 foreach (string file in fileList)
-                {
+                {                    
                     File.Delete(file);
                 }
             }
@@ -184,7 +166,7 @@ namespace PurgeESignTemporaryFiles
                 sEvent = dirNotFound.Message;
                 logger.Error(sEvent);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 logger.Error($"Source:{ex.Source}, Messages:{ex.Message}");
             }
