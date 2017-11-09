@@ -79,6 +79,15 @@ namespace PurgeESignTemporaryFiles.Console
             var deleteFiles = 0;
             PurgeFilePathInfo(filePath, reservedDay, out deleteFiles);
             logger.Debug($"刪除{deleteFiles}個檔案，Delete process log finished");
+
+            var checkDay = ConfigurationManager.AppSettings["CheckLastMonthFilesDay"];
+            if (DateTime.Today.Day.Equals(int.Parse(checkDay)))
+            {
+                var lastMonth = $"{DateTime.Today.Year}{(DateTime.Today.Month - 1).ToString().PadLeft(2, '0')}";
+                var lastFilePath = ConfigurationManager.AppSettings["ProcessLogFilePath"].Replace("%currentMonth%", lastMonth);
+                PurgeFilePathInfo(lastFilePath, -1, out deleteFiles);
+                logger.Debug($"刪除上個月{deleteFiles}個檔案，刪除上個月process檔案已完成");
+            }
         }
 
         private void DeleteXMLFiles()
@@ -88,6 +97,15 @@ namespace PurgeESignTemporaryFiles.Console
             var deleteFiles = 0;
             PurgeFilePathInfo(filePath, reservedDay, out deleteFiles);
             logger.Debug($"刪除{deleteFiles}個檔案，Delete XML files finished");
+
+            var checkDay = ConfigurationManager.AppSettings["CheckLastMonthFilesDay"];
+            if (DateTime.Today.Day.Equals(int.Parse(checkDay)))
+            {
+                var lastMonth = $"{DateTime.Today.Year}{(DateTime.Today.Month - 1).ToString().PadLeft(2, '0')}";
+                var lastFilePath = ConfigurationManager.AppSettings["ProcessXMLFilePath"].Replace("%currentMonth%", lastMonth);
+                PurgeFilePathInfo(lastFilePath, -1, out deleteFiles);
+                logger.Debug($"刪除上個月{deleteFiles}個檔案，刪除上個月XML檔案已完成");
+            }
         }
 
         private void DeleteSignedPdfFiles()
@@ -143,9 +161,11 @@ namespace PurgeESignTemporaryFiles.Console
                     Directory.CreateDirectory(filePath);
                 }
                 string[] fileList;
+                string[] directoryList = null;
                 if (day.Equals(-1))
                 {
                     fileList = Directory.GetFiles(filePath, "*.*", SearchOption.AllDirectories);
+                    directoryList = Directory.GetDirectories(filePath, "*.*", SearchOption.AllDirectories);
                 }
                 else
                 {
@@ -157,6 +177,23 @@ namespace PurgeESignTemporaryFiles.Console
                 foreach (string file in fileList)
                 {                    
                     File.Delete(file);
+                }
+                if(directoryList != null)
+                {
+                    foreach(string directory in directoryList)
+                    {
+                        if (Directory.Exists(directory))
+                        {
+                            try
+                            {
+                                Directory.Delete(directory);
+                            }
+                            catch(Exception ex)
+                            {
+                                logger.Error($"Source:{ex.Source}, Messages:{ex.Message}");
+                            }
+                        }
+                    }
                 }
             }
             catch (DirectoryNotFoundException dirNotFound)
